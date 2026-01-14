@@ -3,7 +3,7 @@ local enemy = {}
 enemy.list = {}
 
 function enemy.spawn(x, y)
-    table.insert(enemy.list, {x=x, y=y, radius=12, speed=60, isVisible = false})
+    table.insert(enemy.list, {x=x, y=y, radius=12, speed=80, isVisible = false})
 end
 
 function enemy.updateVisibility(px, py, pAngle, pFov, pDist)
@@ -11,12 +11,17 @@ function enemy.updateVisibility(px, py, pAngle, pFov, pDist)
         local dist = math.sqrt((e.x - px)^2 + (e.y - py)^2)
         local angleTo = math.atan2(e.y - py, e.x - px)
         local diff = (angleTo - pAngle + math.pi) % (2 * math.pi) - math.pi
-        
         local inCone = (dist < pDist and math.abs(diff) < pFov/2)
         local blocked = false
+        
         if inCone then
             for _, w in ipairs(map.walls) do
-                local s = {{x1=w.x, y1=w.y, x2=w.x+w.w, y2=w.y}, {x1=w.x, y1=w.y+w.h, x2=w.x+w.w, y2=w.y+w.h}, {x1=w.x, y1=w.y, x2=w.x, y2=w.y+w.h}, {x1=w.x+w.w, y1=w.y, x2=w.x+w.w, y2=w.y+w.h}}
+                local s = {
+                    {x1=w.x, y1=w.y, x2=w.x+w.w, y2=w.y}, 
+                    {x1=w.x, y1=w.y+w.h, x2=w.x+w.w, y2=w.y+w.h}, 
+                    {x1=w.x, y1=w.y, x2=w.x, y2=w.y+w.h}, 
+                    {x1=w.x+w.w, y1=w.y, x2=w.x+w.w, y2=w.y+w.h}
+                }
                 for _, line in ipairs(s) do
                     local den = (px - e.x) * (line.y1 - line.y2) - (py - e.y) * (line.x1 - line.x2)
                     if den ~= 0 then
@@ -35,12 +40,25 @@ end
 function enemy.update(dt, px, py)
     for _, e in ipairs(enemy.list) do
         local angle = math.atan2(py - e.y, px - e.x)
-        local nx, ny = e.x + math.cos(angle)*e.speed*dt, e.y + math.sin(angle)*e.speed*dt
-        local hit = false
+        local dx = math.cos(angle) * e.speed * dt
+        local dy = math.sin(angle) * e.speed * dt
+
+        -- Sliding Collision
+        local nx = e.x + dx
+        local hitX = false
         for _, w in ipairs(map.walls) do
-            if nx+e.radius > w.x and nx-e.radius < w.x+w.w and ny+e.radius > w.y and ny-e.radius < w.y+w.h then hit = true end
+            if nx+e.radius > w.x and nx-e.radius < w.x+w.w and 
+               e.y+e.radius > w.y and e.y-e.radius < w.y+w.h then hitX = true end
         end
-        if not hit then e.x, e.y = nx, ny end
+        if not hitX then e.x = nx end
+
+        local ny = e.y + dy
+        local hitY = false
+        for _, w in ipairs(map.walls) do
+            if e.x+e.radius > w.x and e.x-e.radius < w.x+w.w and 
+               ny+e.radius > w.y and ny-e.radius < w.y+w.h then hitY = true end
+        end
+        if not hitY then e.y = ny end
     end
 end
 
@@ -57,6 +75,7 @@ end
 function enemy.draw()
     for _, e in ipairs(enemy.list) do
         if e.isVisible then
+            -- Restore Red Hollow Circle
             love.graphics.setColor(1, 0, 0)
             love.graphics.circle("line", e.x, e.y, e.radius)
         end

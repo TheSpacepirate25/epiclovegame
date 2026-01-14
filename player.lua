@@ -4,14 +4,15 @@ local player = {}
 function player.load()
     player.x = 400
     player.y = 300
-    player.speed = 50
+    player.speed = 100
     player.angle = 0
-    player.radius = 10
+    player.radius = 12
     player.viewDist = 400
-    player.fov = math.rad(90)
-    player.rotationSpeed = math.pi * 1 
+    player.fov = math.rad(60)
+    player.rotationSpeed = math.pi * 1
 end
 
+-- Helper for visibility raycasting
 function player.getIntersection(x1, y1, x2, y2, x3, y3, x4, y4)
     local den = (y4-y3)*(x2-x1) - (x4-x3)*(y2-y1)
     if den == 0 then return nil end
@@ -48,27 +49,39 @@ function player.getVisiblePolygon()
 end
 
 function player.update(dt)
-    -- Movement with Wall Collision
     local moveX, moveY = 0, 0
     if love.keyboard.isDown("w") then moveY = moveY - 1 end
     if love.keyboard.isDown("s") then moveY = moveY + 1 end
     if love.keyboard.isDown("a") then moveX = moveX - 1 end
     if love.keyboard.isDown("d") then moveX = moveX + 1 end
 
--- Honestly I couldn't tell you what this does
     local length = math.sqrt(moveX^2 + moveY^2)
     if length > 0 then
         local dx = (moveX / length) * player.speed * dt
         local dy = (moveY / length) * player.speed * dt
-        local nx, ny = player.x + dx, player.y + dy
-        local hit = false
+        
+        -- Sliding Collision: Axis independent
+        local nextX = player.x + dx
+        local hitX = false
         for _, w in ipairs(map.walls) do
-            if nx+player.radius > w.x and nx-player.radius < w.x+w.w and ny+player.radius > w.y and ny-player.radius < w.y+w.h then hit = true end
+            if nextX+player.radius > w.x and nextX-player.radius < w.x+w.w and 
+               player.y+player.radius > w.y and player.y-player.radius < w.y+w.h then 
+                hitX = true 
+            end
         end
-        if not hit then player.x, player.y = nx, ny end
+        if not hitX then player.x = nextX end
+
+        local nextY = player.y + dy
+        local hitY = false
+        for _, w in ipairs(map.walls) do
+            if player.x+player.radius > w.x and player.x-player.radius < w.x+w.w and 
+               nextY+player.radius > w.y and nextY-player.radius < w.y+w.h then 
+                hitY = true 
+            end
+        end
+        if not hitY then player.y = nextY end
     end
 
-    -- Rotation
     local mx, my = love.mouse.getPosition()
     local targetAngle = math.atan2(my - player.y, mx - player.x)
     local angleDiff = targetAngle - player.angle
@@ -83,15 +96,18 @@ function player.update(dt)
     end
 end
 
--- Drawing the player and gun and stuff
 function player.draw()
     love.graphics.push()
         love.graphics.translate(player.x, player.y)
         love.graphics.rotate(player.angle)
-        love.graphics.setColor(1, 1, 1)
-        love.graphics.polygon("fill", 15, 0, -10, 10, -10, -10)
+        
+        -- Restore Grey Gun Barrel
         love.graphics.setColor(0.7, 0.7, 0.7)
         love.graphics.rectangle("fill", 10, -3, 20, 6)
+        
+        -- Restore Polygon Body
+        love.graphics.setColor(1, 1, 1)
+        love.graphics.polygon("fill", 15, 0, -10, 10, -10, -10)
     love.graphics.pop()
 end
 
