@@ -30,18 +30,6 @@ function weapon.fire(px, py, angle)
         life = 0.05
     }
 
-    -- Shell Casing
-    local ejectAngle = angle + math.pi/2 + love.math.random(-0.5, 0.5)
-    local ejectSpeed = love.math.random(150, 250)
-    table.insert(weapon.casings, {
-        x = px, y = py,
-        vx = math.cos(ejectAngle) * ejectSpeed,
-        vy = math.sin(ejectAngle) * ejectSpeed,
-        angle = love.math.random(0, math.pi*2),
-        rotVel = love.math.random(-10, 10),
-        friction = 0.92, life = 1
-    })
-
     -- Firing Rays
     for i = 1, wp.rays do
         local shotAngle = angle

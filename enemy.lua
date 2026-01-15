@@ -3,7 +3,7 @@ local enemy = {}
 enemy.list = {}
 
 function enemy.spawn(x, y)
-    table.insert(enemy.list, {x=x, y=y, radius=12, speed=80, isVisible = false})
+    table.insert(enemy.list, {x=x, y=y, radius=12, speed=120, isVisible = false})
 end
 
 function enemy.updateVisibility(px, py, pAngle, pFov, pDist)

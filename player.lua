@@ -12,7 +12,6 @@ function player.load()
     player.rotationSpeed = math.pi * 1
 end
 
--- Helper for visibility raycasting
 function player.getIntersection(x1, y1, x2, y2, x3, y3, x4, y4)
     local den = (y4-y3)*(x2-x1) - (x4-x3)*(y2-y1)
     if den == 0 then return nil end
@@ -48,7 +47,7 @@ function player.getVisiblePolygon()
     return points
 end
 
-function player.update(dt)
+function player.update(dt, camX, camY)
     local moveX, moveY = 0, 0
     if love.keyboard.isDown("w") then moveY = moveY - 1 end
     if love.keyboard.isDown("s") then moveY = moveY + 1 end
@@ -60,7 +59,7 @@ function player.update(dt)
         local dx = (moveX / length) * player.speed * dt
         local dy = (moveY / length) * player.speed * dt
         
-        -- Sliding Collision: Axis independent
+        -- Axis independent sliding collision
         local nextX = player.x + dx
         local hitX = false
         for _, w in ipairs(map.walls) do
@@ -82,8 +81,12 @@ function player.update(dt)
         if not hitY then player.y = nextY end
     end
 
+    -- Fix: Adjust mouse position by camera offset to stay accurate while scrolling
     local mx, my = love.mouse.getPosition()
-    local targetAngle = math.atan2(my - player.y, mx - player.x)
+    local worldMX = mx + (camX or 0)
+    local worldMY = my + (camY or 0)
+    
+    local targetAngle = math.atan2(worldMY - player.y, worldMX - player.x)
     local angleDiff = targetAngle - player.angle
     while angleDiff > math.pi do angleDiff = angleDiff - 2 * math.pi end
     while angleDiff < -math.pi do angleDiff = angleDiff + 2 * math.pi end
@@ -101,11 +104,9 @@ function player.draw()
         love.graphics.translate(player.x, player.y)
         love.graphics.rotate(player.angle)
         
-        -- Restore Grey Gun Barrel
         love.graphics.setColor(0.7, 0.7, 0.7)
         love.graphics.rectangle("fill", 10, -3, 20, 6)
         
-        -- Restore Polygon Body
         love.graphics.setColor(1, 1, 1)
         love.graphics.polygon("fill", 15, 0, -10, 10, -10, -10)
     love.graphics.pop()
