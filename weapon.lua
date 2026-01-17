@@ -1,11 +1,25 @@
-local map = require("map")
 local enemy = require("enemy")
 local weapon = {}
 
+local function checkStiHit(x, y, map)
+    if not map or not map.layers["walls"] then return false end
+    local tx = math.floor(x / map.tilewidth) + 1
+    local ty = math.floor(y / map.tileheight) + 1
+    return map.layers["walls"].data[ty] and map.layers["walls"].data[ty][tx]
+end
+
+function weapon.load()
+    weapon.sounds = {
+        blaster = love.audio.newSource("sfx/blaster.wav", "static"),
+        shotgun = love.audio.newSource("sfx/shotgun.wav", "static")
+    }
+end
+
 weapon.list = {
-    { name = "Blaster", spread = 0, rays = 1, cooldown = 0.12, color = {0, 1, 0}, shake = 2, flashSize = 10 },
-    { name = "Shotgun", spread = math.rad(25), rays = 6, cooldown = 0.8, color = {1, 0.5, 0}, shake = 8, flashSize = 25 }
+    { name = "Blaster", spread = 0, rays = 1, cooldown = 0.12, color = {0, 1, 0}, shake = 2, flashSize = 10, sound = "blaster" },
+    { name = "Shotgun", spread = math.rad(25), rays = 6, cooldown = 0.8, color = {1, 0.5, 0}, shake = 8, flashSize = 25, sound = "shotgun" }
 }
+
 weapon.current = 1
 weapon.timer = 0
 weapon.swapTimer = 0 
@@ -14,12 +28,19 @@ weapon.shakeRequest = 0
 weapon.activeMuzzleFlash = { x = 0, y = 0, size = 0, life = 0 }
 weapon.casings = {}
 
-function weapon.fire(px, py, angle)
+function weapon.fire(px, py, angle, map)
     if weapon.timer > 0 or weapon.swapTimer > 0 then return end
     
     local wp = weapon.list[weapon.current]
     weapon.timer = wp.cooldown
     weapon.shakeRequest = wp.shake
+
+    -- RESTORED SOUND LOGIC
+    if weapon.sounds[wp.sound] then
+        weapon.sounds[wp.sound]:setPitch(love.math.random(0.9, 1.1)) -- slight pitch variation
+        weapon.sounds[wp.sound]:stop() 
+        weapon.sounds[wp.sound]:play()
+    end
 
     -- Muzzle Flash
     local muzzleDist = 30 
@@ -37,34 +58,30 @@ function weapon.fire(px, py, angle)
             shotAngle = angle - (wp.spread / 2) + (wp.spread * (i - 1) / (wp.rays - 1))
         end
 
-        local tx, ty = px + math.cos(shotAngle)*1000, py + math.sin(shotAngle)*1000
-        local closest = {x = tx, y = ty, dist = 1}
-
-        for _, wall in ipairs(map.walls) do
-            local s = {
-                {x1=wall.x, y1=wall.y, x2=wall.x+wall.w, y2=wall.y}, 
-                {x1=wall.x, y1=wall.y+wall.h, x2=wall.x+wall.w, y2=wall.y+wall.h}, 
-                {x1=wall.x, y1=wall.y, x2=wall.x, y2=wall.y+wall.h}, 
-                {x1=wall.x+wall.w, y1=wall.y, x2=wall.x+wall.w, y2=wall.y+wall.h}
-            }
-            for _, line in ipairs(s) do
-                local den = (px-tx)*(line.y1-line.y2) - (py-ty)*(line.x1-line.x2)
-                if den ~= 0 then
-                    local t = ((px-line.x1)*(line.y1-line.y2)-(py-line.y1)*(line.x1-line.x2))/den
-                    local u = -((px-tx)*(py-line.y1)-(py-ty)*(px-line.x1))/den
-                    if t >= 0 and t <= 1 and u >= 0 and u <= 1 then
-                        if t < closest.dist then closest = {x=px+t*(tx-px), y=py+t*(ty-py), dist=t} end
-                    end
-                end
+        local hitX, hitY = px, py
+        local maxDist = 1000
+        local step = 8 
+        
+        for d = 0, maxDist, step do
+            local nextX = px + math.cos(shotAngle) * d
+            local nextY = py + math.sin(shotAngle) * d
+            
+            -- Changed to checkStiHit
+            if checkStiHit(nextX, nextY, map) then
+                hitX, hitY = nextX, nextY
+                break
+            else
+                hitX, hitY = nextX, nextY 
             end
         end
-        
+
         table.insert(weapon.flashes, {
-            offsetX = closest.x - px,
-            offsetY = closest.y - py,
+            offsetX = hitX - px,
+            offsetY = hitY - py,
             color = wp.color, life = 0.05 
         })
-        enemy.checkHit(px, py, closest.x, closest.y)
+        
+        enemy.checkHit(px, py, hitX, hitY)
     end
 end
 
@@ -76,6 +93,7 @@ end
 function weapon.update(dt)
     weapon.timer = math.max(0, weapon.timer - dt)
     weapon.swapTimer = math.max(0, weapon.swapTimer - dt)
+    
     if weapon.activeMuzzleFlash.life > 0 then
         weapon.activeMuzzleFlash.life = weapon.activeMuzzleFlash.life - dt
     end

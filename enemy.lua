@@ -75,7 +75,7 @@ end
 function enemy.draw()
     for _, e in ipairs(enemy.list) do
         if e.isVisible then
-            -- Restore Red Hollow Circle
+            -- makes them red circles if they're visible, otherwise dont draw them at all otherwise you can see them through walls and shit. maybe a player perk in the future??
             love.graphics.setColor(1, 0, 0)
             love.graphics.circle("line", e.x, e.y, e.radius)
         end

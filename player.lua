@@ -11,39 +11,49 @@ function player.load()
     player.rotationSpeed = math.pi * 1
 end
 
--- Helper to check if a pixel is inside a Tiled 'walls' layer
 local function checkStiHit(x, y, stiMap)
     if not stiMap or not stiMap.layers["walls"] then return false end
     local tw = stiMap.tilewidth
     local th = stiMap.tileheight
-    -- Convert pixel coordinates to tile coordinates (Lua is 1-indexed)
     local tx = math.floor(x / tw) + 1
     local ty = math.floor(y / th) + 1
     
-    -- Returns true if there is a tile at this location in the "walls" layer
     return stiMap.layers["walls"].data[ty] and stiMap.layers["walls"].data[ty][tx]
 end
 
--- Used for line-of-sight and vision cone
-function player.getVisiblePolygon(stiMap)
-    local points = {player.x, player.y}
-    local precision = 100 
-    local startAngle = player.angle - player.fov/2
+-- uses old visible polygon drawing nonsense from v0.2 i think
+function player.getVisiblePolygon(map)
+    local px, py = math.floor(player.x), math.floor(player.y)
+    local points = {px, py}
+    local precision = 120 
     
     for i = 0, precision do
-        local angle = startAngle + (player.fov * (i / precision))
-        local hitX, hitY = player.x + math.cos(angle)*player.viewDist, player.y + math.sin(angle)*player.viewDist
+        local a = (player.angle - player.fov/2) + (player.fov * (i / precision))
+        local cosA = math.cos(a)
+        local sinA = math.sin(a)
         
-        -- Step through the ray to find a Tiled wall
-        -- We check every 8 pixels along the line for better performance
-        for d = 0, player.viewDist, 8 do
-            local tx = player.x + math.cos(angle) * d
-            local ty = player.y + math.sin(angle) * d
-            if checkStiHit(tx, ty, stiMap) then
-                hitX, hitY = tx, ty
+        local hitX = px + cosA * player.viewDist
+        local hitY = py + sinA * player.viewDist
+        
+        for d = 0, player.viewDist, 16 do
+            local tx = px + cosA * d
+            local ty = py + sinA * d
+            
+            if checkStiHit(tx, ty, map) then
+                -- finds exact pixel edge and makes it look more like a cone and less like a bunch of rectangles being drawn. 
+                -- i mean thats exactly what we're doing but the player doesnt need to know that
+                for refine = d - 16, d do
+                    local rx = px + cosA * refine
+                    local ry = py + sinA * refine
+                    if checkStiHit(rx, ry, map) then
+                        hitX, hitY = rx, ry
+                        break
+                    end
+                end
                 break
             end
         end
+        
         table.insert(points, hitX)
         table.insert(points, hitY)
     end
@@ -62,21 +72,19 @@ function player.update(dt, camX, camY, stiMap)
         local dx = (moveX / length) * player.speed * dt
         local dy = (moveY / length) * player.speed * dt
         
-        -- Movement with STI Wall Collision
+        -- X axis collision (uses checkStiHit)
         local nextX = player.x + dx
-        -- Check collision on X axis (including player radius for padding)
         if not checkStiHit(nextX + (dx > 0 and player.radius or -player.radius), player.y, stiMap) then
             player.x = nextX
         end
 
+        -- Y axis collision (uses checkStiHit)
         local nextY = player.y + dy
-        -- Check collision on Y axis (including player radius for padding)
         if not checkStiHit(player.x, nextY + (dy > 0 and player.radius or -player.radius), stiMap) then
             player.y = nextY
         end
     end
 
-    -- Aiming Fix: Account for camera scrolling
     local mx, my = love.mouse.getPosition()
     local worldMX = mx + (camX or 0)
     local worldMY = my + (camY or 0)
@@ -84,7 +92,7 @@ function player.update(dt, camX, camY, stiMap)
     local targetAngle = math.atan2(worldMY - player.y, worldMX - player.x)
     local angleDiff = targetAngle - player.angle
     
-    -- Normalize angle differences to prevent 360-degree spins
+    -- normalize angle to prevent spinning in circles
     while angleDiff > math.pi do angleDiff = angleDiff - 2 * math.pi end
     while angleDiff < -math.pi do angleDiff = angleDiff + 2 * math.pi end
 
@@ -101,11 +109,11 @@ function player.draw()
         love.graphics.translate(player.x, player.y)
         love.graphics.rotate(player.angle)
         
-        -- Gun Barrel
+
         love.graphics.setColor(0.7, 0.7, 0.7)
         love.graphics.rectangle("fill", 10, -3, 20, 6)
         
-        -- Robot Body
+
         love.graphics.setColor(1, 1, 1)
         love.graphics.polygon("fill", 15, 0, -10, 10, -10, -10)
     love.graphics.pop()
