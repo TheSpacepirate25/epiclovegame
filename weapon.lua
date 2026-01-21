@@ -37,7 +37,6 @@ function weapon.fire(px, py, angle, map)
 
     -- RESTORED SOUND LOGIC
     if weapon.sounds[wp.sound] then
-        weapon.sounds[wp.sound]:setPitch(love.math.random(0.9, 1.1)) -- slight pitch variation
         weapon.sounds[wp.sound]:stop() 
         weapon.sounds[wp.sound]:play()
     end

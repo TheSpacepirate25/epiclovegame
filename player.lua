@@ -1,8 +1,8 @@
 local player = {}
 
 function player.load()
-    player.x = 200
-    player.y = 200
+    player.x = 150
+    player.y = 180
     player.speed = 100
     player.angle = 0
     player.radius = 12
@@ -25,7 +25,7 @@ end
 function player.getVisiblePolygon(map)
     local px, py = math.floor(player.x), math.floor(player.y)
     local points = {px, py}
-    local precision = 120 
+    local precision = 120
     
     for i = 0, precision do
         local a = (player.angle - player.fov/2) + (player.fov * (i / precision))
@@ -35,14 +35,15 @@ function player.getVisiblePolygon(map)
         local hitX = px + cosA * player.viewDist
         local hitY = py + sinA * player.viewDist
         
-        for d = 0, player.viewDist, 16 do
+        for d = 0, player.viewDist, 2 do
             local tx = px + cosA * d
             local ty = py + sinA * d
             
+
+            -- finds exact pixel edge and makes it look more like a cone and less like a bunch of polygons
+            -- i mean thats exactly what we're doing but the player doesnt need to know that
             if checkStiHit(tx, ty, map) then
-                -- finds exact pixel edge and makes it look more like a cone and less like a bunch of rectangles being drawn. 
-                -- i mean thats exactly what we're doing but the player doesnt need to know that
-                for refine = d - 16, d do
+                for refine = d - 2, d do
                     local rx = px + cosA * refine
                     local ry = py + sinA * refine
                     if checkStiHit(rx, ry, map) then
@@ -52,6 +53,11 @@ function player.getVisiblePolygon(map)
                 end
                 break
             end
+            
+
+            -- if performance issues arise try changine the number in for d = 0, player.viewDist, 2 and for refine = d - 2, to a higher number like 8 or something
+            -- its definitely not an issue on any modern machine but it might be an issue on really old pcs or ipod nanos
+            -- if you do get this running on an ipod nano i think the little spin wheel would be awesome for aiming and please dm me any pictures
         end
         
         table.insert(points, hitX)
